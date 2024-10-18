@@ -61,8 +61,3 @@ pub struct SqlCipherProvider {
     pub fips_status: extern "C" fn(ctx: *mut c_void) -> c_int,
     pub get_provider_version: extern "C" fn(ctx: *mut c_void) -> *const c_char,
 }
-
-extern "C" {
-    pub fn sqlcipher_malloc(size: u64) -> *mut c_void;
-    pub fn sqlcipher_register_provider(provider: *mut SqlCipherProvider) -> c_int;
-}

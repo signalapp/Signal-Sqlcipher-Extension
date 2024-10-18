@@ -7,7 +7,6 @@ use crate::sqlcipher::*;
 use crate::sqlite::*;
 use aes::cipher::{block_padding::NoPadding, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use core::ffi::{c_char, c_int, c_uchar, c_void};
-use core::mem;
 use hmac::{Hmac, Mac};
 use pbkdf2::pbkdf2_hmac;
 use rand_core::{OsRng, RngCore};
@@ -186,13 +185,12 @@ extern "C" fn cipher(
 }
 
 #[no_mangle]
-pub extern "C" fn signal_register_crypto_provider() -> c_int {
+pub extern "C" fn signal_crypto_provider_setup(provider: *mut SqlCipherProvider) -> c_int {
+    if provider.is_null() {
+        return SQLITE_ERROR;
+    }
+
     unsafe {
-        // sqlcipher_register_provider expects provider to be allocated with
-        // `sqlcipher_malloc` because it will `sqlitecipher_free` it when the
-        // database is closed.
-        let provider =
-            sqlcipher_malloc(mem::size_of::<SqlCipherProvider>() as u64) as *mut SqlCipherProvider;
         provider.write(SqlCipherProvider {
             activate,
             deactivate,
@@ -212,6 +210,6 @@ pub extern "C" fn signal_register_crypto_provider() -> c_int {
             fips_status,
             get_provider_version,
         });
-        sqlcipher_register_provider(provider)
     }
+    SQLITE_OK
 }
