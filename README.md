@@ -22,14 +22,8 @@ RUSTFLAGS="--cfg aes_armv8" cargo build --release
 
 # Usage
 
-Cryptography provider needs to be registered right before opening the database:
-```c
-int status = signal_register_crypto_provider();
-assert(status == SQLITE_OK);
-
-status = sqlite3_open_v2("path", &db, ...);
-assert(status == SQLITE_OK);
-```
+The resulting `.a`/`.lib` file needs to be linked with sqlcipher, and built with
+`-DSQLCIPHER_CRYPTO_CUSTOM=signal_crypto_provider_setup`.
 
 # Legal things
 
