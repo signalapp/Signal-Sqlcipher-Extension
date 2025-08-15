@@ -7,6 +7,7 @@ use crate::sqlcipher::*;
 use crate::sqlite::*;
 use aes::cipher::{block_padding::NoPadding, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use core::ffi::{c_char, c_int, c_uchar, c_void};
+use hmac::digest::KeyInit;
 use hmac::{Hmac, Mac};
 use pbkdf2::pbkdf2_hmac;
 use rand_core::{OsRng, RngCore};
@@ -99,33 +100,28 @@ extern "C" fn hmac(
     };
 
     match algorithm {
-        SQLCIPHER_HMAC_SHA512 => {
-            let Ok(mut mac) = Hmac::<Sha512>::new_from_slice(key) else {
-                return SQLITE_ERROR;
-            };
-            mac.update(in1);
-            if let Some(in2) = in2 {
-                mac.update(in2);
-            }
-            let digest = mac.finalize().into_bytes();
-            unsafe {
-                out.copy_from(digest.as_ptr(), digest.len());
-            };
-        }
-        SQLCIPHER_HMAC_SHA1 => {
-            let Ok(mut mac) = Hmac::<Sha1>::new_from_slice(key) else {
-                return SQLITE_ERROR;
-            };
-            mac.update(in1);
-            if let Some(in2) = in2 {
-                mac.update(in2);
-            }
-            let digest = mac.finalize().into_bytes();
-            unsafe {
-                out.copy_from(digest.as_ptr(), digest.len());
-            };
-        }
-        _ => return SQLITE_ERROR,
+        SQLCIPHER_HMAC_SHA512 => hmac_into::<Hmac<Sha512>>(key, in1, in2, out),
+        SQLCIPHER_HMAC_SHA1 => hmac_into::<Hmac<Sha1>>(key, in1, in2, out),
+        _ => SQLITE_ERROR,
+    }
+}
+
+fn hmac_into<T: Mac + KeyInit>(
+    key: &[u8],
+    in1: &[u8],
+    in2: Option<&[u8]>,
+    out: *mut c_uchar,
+) -> c_int {
+    let Ok(mut mac) = <T as KeyInit>::new_from_slice(key) else {
+        return SQLITE_ERROR;
+    };
+    mac.update(in1);
+    if let Some(in2) = in2 {
+        mac.update(in2);
+    }
+    let digest = mac.finalize().into_bytes();
+    unsafe {
+        out.copy_from(digest.as_ptr(), digest.len());
     };
     SQLITE_OK
 }
